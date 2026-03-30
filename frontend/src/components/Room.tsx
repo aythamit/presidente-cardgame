@@ -7,21 +7,32 @@ import '../css/Room.css'
 import { useParams } from "react-router";
 import UserContext from "../context/UserContext.tsx";
 
-function Card(props: { cartasSeleccionadas: any[], searchElement: any, onClick: () => void }) {
-    return <div
+const RANK_DISPLAY: Record<number, string> = {
+    3: "3", 4: "4", 5: "5", 6: "6", 7: "7",
+    8: "8", 9: "9", 10: "10", 11: "J", 12: "Q", 13: "K", 14: "A"
+};
 
-        className={`carta ${props.cartasSeleccionadas.includes(props.searchElement) ? "seleccionada" : ""}`}
+const SUIT_SYMBOLS: Record<string, string> = {
+    "Treboles": "♣", "Diamantes": "♦", "Corazones": "♥", "Picas": "♠"
+};
+
+function Card(props: { cartasSeleccionadas: any[], card: any, onClick: () => void }) {
+    const rankDisplay = RANK_DISPLAY[props.card.rank] || props.card.rank;
+    const suitSymbol = SUIT_SYMBOLS[props.card.suit] || props.card.suit;
+    
+    return <div
+        className={`carta ${props.cartasSeleccionadas.includes(props.card) ? "seleccionada" : ""}`}
         onClick={props.onClick}
     >
-        <span className="valor">{props.searchElement.number}</span>
-        <span className="palo">{props.searchElement.type}</span>
+        <span className="valor">{rankDisplay}</span>
+        <span className="palo">{suitSymbol}</span>
     </div>;
 }
 
-function CardList(props: { cardList: any[], searchElement: any, handleCartaClick?: (carta:object) => void }) {
+function CardList(props: { cardList: any[], selectedCards: any[], handleCartaClick?: (carta:object) => void }) {
     return <div className="baraja-container">
         {props.cardList.map((carta, index) => (
-            <Card key={index} cartasSeleccionadas={props.searchElement} searchElement={carta}
+            <Card key={index} cartasSeleccionadas={props.selectedCards} card={carta}
                   onClick={(props.handleCartaClick) ? () => props.handleCartaClick(carta) : ()=>{} }/>
         ))}
     </div>;
@@ -240,7 +251,7 @@ function Room() {
                 <div>
 
                     {currentCardsOnPlay.length > 0 ? (
-                            <CardList cardList={currentCardsOnPlay[currentCardsOnPlay.length-1].cardPlay} searchElement={cartasSeleccionadas}/>
+                            <CardList cardList={currentCardsOnPlay[currentCardsOnPlay.length-1].cardPlay} selectedCards={cartasSeleccionadas}/>
                     ) : (
                         <p>No hay cartas en juego.</p>
                     )}
@@ -255,7 +266,7 @@ function Room() {
             <div>
 
 
-                <CardList cardList={handList} handleCartaClick={handleCartaClick} searchElement={cartasSeleccionadas}/>
+                <CardList cardList={handList} handleCartaClick={handleCartaClick} selectedCards={cartasSeleccionadas}/>
 
                 {/*<div className="baraja-container">*/}
                 {/*    {handList.map((carta, index) => (*/}

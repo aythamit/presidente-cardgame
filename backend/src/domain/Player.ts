@@ -2,14 +2,14 @@ import { Card } from "./Card";
 import { PlayerPlay } from "./PlayerPlay";
 import { RoundType } from "./Game";
 import {Socket} from "socket.io";
-import { randomUUID } from "crypto";
 
 export class Player {
   private name: string;
   private hand: Card[];
   private id: string;
   private socket: Socket|null;
-  constructor(name: string, id:string, socket: Socket) {
+
+  constructor(name: string, id: string, socket: Socket) {
     this.name = name;
     this.id = id;
     this.hand = [];
@@ -39,37 +39,42 @@ export class Player {
   getName() {
     return this.name;
   }
+
   setSocket(socket: Socket|null) {
     this.socket = socket;
   }
+
   setHand(hand: Card[]) {
-    this.hand = [];
+    this.hand = hand;
   }
 
   popFromHand(index: number, array: Card[]): Card | undefined {
     if (index < 0 || index >= array.length) {
       console.error("Índice fuera de rango");
-      return undefined; // O podrías lanzar un error
+      return undefined;
     }
     return array.splice(index, 1)[0];
   }
 
-  playCard(indexCards: number[], cardsOnPlay: PlayerPlay): Card[] {
-    let cards: Card[] = [];
-    let typeRound: RoundType = "normal";
+  playCard(indexCards: number[], cardsOnPlay: PlayerPlay | null): Card[] {
+    const cards: Card[] = [];
+    const typeRound: RoundType = "normal";
     const shallowCopy = [...this.hand];
     let countCards = 0;
+    
     indexCards.forEach((cardIndex) => {
-      let card = this.popFromHand(cardIndex - countCards, this.hand);
+      const card = this.popFromHand(cardIndex - countCards, this.hand);
       countCards++;
       if (card) {
         cards.push(card);
       }
     });
+    
     let cardsJugadas: Card[] | null = null;
     if (cardsOnPlay) {
       cardsJugadas = cardsOnPlay.getCardPlay();
     }
+    
     if (!this.canPlayCards(cards, cardsJugadas, typeRound)) {
       console.log("no se pudo jugar esta carta");
       this.hand = shallowCopy;
@@ -84,33 +89,59 @@ export class Player {
     cardsOnBoard: Card[] | null,
     typeRound: RoundType,
   ): boolean {
-    let canPlayCard = true;
-    if (cardsPlayed.length == 0) {
+    if (cardsPlayed.length === 0) {
       return false;
     }
-    if (typeRound == "normal") {
-      console.log(cardsPlayed);
-      let cardValue = cardsPlayed[0].getValue();
-      cardsPlayed.forEach((card) => {
-        console.log(cardValue, card.getValue());
-        if (cardValue != card.getValue()) {
-          canPlayCard = false;
-        }
-      });
-      if (!canPlayCard) {
-        console.log("no se puedee");
-        return canPlayCard;
-      }
+
+    const allSameRank = cardsPlayed.every(card => card.getRank() === cardsPlayed[0].getRank());
+    if (!allSameRank) {
+      console.log("Las cartas deben tener el mismo valor");
+      return false;
     }
 
-    if (typeRound == "normal" && cardsOnBoard && cardsOnBoard.length > 0) {
-      if (cardsOnBoard.length != cardsPlayed.length) {
+    if (cardsOnBoard && cardsOnBoard.length > 0) {
+      if (cardsOnBoard.length !== cardsPlayed.length) {
         console.log("debes jugar el mismo numero de cartas");
         return false;
       }
 
       return cardsPlayed[0].getValue() > cardsOnBoard[0].getValue();
     }
-    return canPlayCard;
+
+    return true;
+  }
+
+  hasTwo(): boolean {
+    return this.hand.some(card => card.isTwo());
+  }
+
+  getLowestValidCards(cardsOnBoard: Card[] | null): Card[] {
+    const count = cardsOnBoard ? cardsOnBoard.length : 1;
+    const boardValue = cardsOnBoard ? cardsOnBoard[0].getValue() : 0;
+
+    const validCards = this.hand.filter(card => {
+      if (cardsOnBoard) {
+        return card.getValue() > boardValue;
+      }
+      return true;
+    });
+
+    if (validCards.length === 0) {
+      return [];
+    }
+
+    validCards.sort((a, b) => a.getValue() - b.getValue());
+    
+    return validCards.slice(0, count);
+  }
+
+  getBestCards(count: number): Card[] {
+    const sorted = [...this.hand].sort((a, b) => b.getValue() - a.getValue());
+    return sorted.slice(0, count);
+  }
+
+  getWorstCards(count: number): Card[] {
+    const sorted = [...this.hand].sort((a, b) => a.getValue() - b.getValue());
+    return sorted.slice(0, count);
   }
 }

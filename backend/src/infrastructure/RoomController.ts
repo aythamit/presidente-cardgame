@@ -184,7 +184,7 @@ class RoomController {
       // @ts-ignore
       cardsPlayed.forEach(cardPlayed => {
         player.getHand().forEach((cardHand, index) => {
-          if (cardPlayed.number == cardHand.getNumber() && cardPlayed.type == cardHand.getType()){
+          if (cardPlayed.rank == cardHand.getRank() && cardPlayed.suit == cardHand.getSuit()){
             console.log(cardHand, index)
             arrayIndexCards.push(index);
           }
