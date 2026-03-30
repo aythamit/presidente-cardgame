@@ -56,7 +56,11 @@ export class Player {
     return array.splice(index, 1)[0];
   }
 
-  playCard(indexCards: number[], cardsOnPlay: PlayerPlay | null): Card[] {
+  playCard(
+    indexCards: number[], 
+    cardsOnPlay: PlayerPlay | null,
+    options: { allowEqualCards?: boolean; revolutionActive?: boolean } = {}
+  ): Card[] {
     const cards: Card[] = [];
     const typeRound: RoundType = "normal";
     const shallowCopy = [...this.hand];
@@ -75,7 +79,7 @@ export class Player {
       cardsJugadas = cardsOnPlay.getCardPlay();
     }
     
-    if (!this.canPlayCards(cards, cardsJugadas, typeRound)) {
+    if (!this.canPlayCards(cards, cardsJugadas, typeRound, options)) {
       console.log("no se pudo jugar esta carta");
       this.hand = shallowCopy;
       return [];
@@ -88,7 +92,10 @@ export class Player {
     cardsPlayed: Card[],
     cardsOnBoard: Card[] | null,
     typeRound: RoundType,
+    options: { allowEqualCards?: boolean; revolutionActive?: boolean } = {}
   ): boolean {
+    const { allowEqualCards = false, revolutionActive = false } = options;
+
     if (cardsPlayed.length === 0) {
       return false;
     }
@@ -105,10 +112,23 @@ export class Player {
         return false;
       }
 
-      return cardsPlayed[0].getValue() > cardsOnBoard[0].getValue();
+      const playedValue = this.getInvertedValue(cardsPlayed[0].getValue(), revolutionActive);
+      const boardValue = this.getInvertedValue(cardsOnBoard[0].getValue(), revolutionActive);
+
+      if (allowEqualCards) {
+        return playedValue >= boardValue;
+      }
+      return playedValue > boardValue;
     }
 
     return true;
+  }
+
+  private getInvertedValue(value: number, revolution: boolean): number {
+    if (revolution) {
+      return 15 - value;
+    }
+    return value;
   }
 
   hasTwo(): boolean {
