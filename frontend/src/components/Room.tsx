@@ -1,133 +1,102 @@
-import {useContext, useEffect, useState} from "react";
+import { useEffect, useState, useContext, useRef } from "react";
 import { socket } from '../socket';
-import { ConnectionState } from './ConnectionState';
-import { ConnectionManager } from './ConnectionManager';
-import { Events } from "./Events";
-import '../css/Room.css'
-import { useParams } from "react-router";
+import { Link } from "react-router";
 import UserContext from "../context/UserContext.tsx";
+import '../css/Room.css';
 
 const RANK_DISPLAY: Record<number, string> = {
-    3: "3", 4: "4", 5: "5", 6: "6", 7: "7",
+    2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 7: "7",
     8: "8", 9: "9", 10: "10", 11: "J", 12: "Q", 13: "K", 14: "A"
 };
 
-const SUIT_SYMBOLS: Record<string, string> = {
-    "Treboles": "♣", "Diamantes": "♦", "Corazones": "♥", "Picas": "♠"
+const SUIT_SYMBOLS: Record<string, { symbol: string; color: string }> = {
+    "Treboles": { symbol: "♣", color: "black" },
+    "Diamantes": { symbol: "♦", color: "red" },
+    "Corazones": { symbol: "♥", color: "red" },
+    "Picas": { symbol: "♠", color: "black" }
 };
 
-function Card(props: { cartasSeleccionadas: any[], card: any, onClick: () => void }) {
-    const rankDisplay = RANK_DISPLAY[props.card.rank] || props.card.rank;
-    const suitSymbol = SUIT_SYMBOLS[props.card.suit] || props.card.suit;
-    
-    return <div
-        className={`carta ${props.cartasSeleccionadas.includes(props.card) ? "seleccionada" : ""}`}
-        onClick={props.onClick}
-    >
-        <span className="valor">{rankDisplay}</span>
-        <span className="palo">{suitSymbol}</span>
-    </div>;
+interface PlayerInfo {
+    id: string;
+    name: string;
+    handLength: number;
 }
 
-function CardList(props: { cardList: any[], selectedCards: any[], handleCartaClick?: (carta:object) => void }) {
-    return <div className="baraja-container">
-        {props.cardList.map((carta, index) => (
-            <Card key={index} cartasSeleccionadas={props.selectedCards} card={carta}
-                  onClick={(props.handleCartaClick) ? () => props.handleCartaClick(carta) : ()=>{} }/>
-        ))}
-    </div>;
+interface CardData {
+    rank: number;
+    suit: string;
+}
+
+interface GameState {
+    round: number;
+    consecutivePasses: number;
+    revolutionActive: boolean;
+    tableCleared: boolean;
+}
+
+function Card({ card, onClick, selected, disabled }: { 
+    card: CardData; 
+    onClick?: () => void; 
+    selected?: boolean;
+    disabled?: boolean;
+}) {
+    const suitInfo = SUIT_SYMBOLS[card.suit] || { symbol: card.suit, color: "black" };
+    const rankDisplay = RANK_DISPLAY[card.rank] || card.rank;
+    
+    return (
+        <div 
+            className={`card ${selected ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}
+            onClick={disabled ? undefined : onClick}
+            style={{ color: suitInfo.color }}
+        >
+            <div className="card-corner top-left">
+                <span className="card-rank">{rankDisplay}</span>
+                <span className="card-suit">{suitInfo.symbol}</span>
+            </div>
+            <div className="card-center">
+                <span className="card-suit-large">{suitInfo.symbol}</span>
+            </div>
+            <div className="card-corner bottom-right">
+                <span className="card-rank">{rankDisplay}</span>
+                <span className="card-suit">{suitInfo.symbol}</span>
+            </div>
+        </div>
+    );
 }
 
 function Room() {
-    const [fooEvents, setFooEvents] = useState([]);
-    const [isConnected, setIsConnected] = useState(socket.connected);
     const { user, cambiarUser } = useContext(UserContext);
-
-    const [playerList, setPlayerList] = useState([]);
-    const [handList, setHandList] = useState([]);
-
-
-    const [currentPlayer, setCurrentPlayer] = useState('');
-    const [currentCardsOnPlay, setCurrentCardsOnPlay] = useState([]);
-    const [history, setHistory] = useState([]);
+    const { idRoom } = useParams<{ idRoom: string }>();
+    const [isConnected, setIsConnected] = useState(socket.connected);
+    const [players, setPlayers] = useState<PlayerInfo[]>([]);
+    const [hand, setHand] = useState<CardData[]>([]);
+    const [currentPlayerName, setCurrentPlayerName] = useState('');
     const [isMyTurn, setIsMyTurn] = useState(false);
-
-
-    let { idRoom } = useParams();
-
-    const [cartasSeleccionadas, setCartasSeleccionadas] = useState([]);
-
-    const handleCartaClick = (carta) => {
-        if (cartasSeleccionadas.includes(carta)) {
-            setCartasSeleccionadas(cartasSeleccionadas.filter((c) => c !== carta));
-        } else {
-            setCartasSeleccionadas([...cartasSeleccionadas, carta]);
-        }
-    };
-
-    function playTurn(action: string) {
-
-
-        socket.emit('message', {
-                action:"playTurn",
-                // roomId: `${socket.id}${Math.random()}`,
-                roomId: `${idRoom}`,
-                playerId: `${user.id}`,
-                actionTurn: action,
-                cardsPlayed: cartasSeleccionadas,
-                socketID: socket.id,
-            }
-        );
-    }
-
-    function joinRoom(roomId: string) {
-        if (user!=null){
-            console.log("join Room")
-            console.log(socket)
-            socket.emit('message', {
-                    action:"joinRoom",
-                    // roomId: `${socket.id}${Math.random()}`,
-                    roomId: `${roomId}`,
-                    playerId: user.id,
-                    playerName: user.name,
-                    socketID: socket.id,
-                }
-            );
-        }
-    }
-
-    function initGame() {
-        if (user!=null){
-            console.log("join Room")
-            console.log(socket)
-            socket.emit('message', {
-                    action:"initGame",
-                    // roomId: `${socket.id}${Math.random()}`,
-                    roomId: `${idRoom}`,
-                    socketID: socket.id,
-                }
-            );
-        }
-    }
-
-
-    function generateRandomString(length:number) {
-        let result = '';
-        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        const charactersLength = characters.length;
-        for ( let i = 0; i < length; i++ ) {
-            result += characters.charAt(Math.floor(Math.random() * charactersLength));
-        }
-        return result;
-    }
+    const [cardsOnPlay, setCardsOnPlay] = useState<CardData[]>([]);
+    const [lastPlayType, setLastPlayType] = useState<'play' | 'pass' | null>(null);
+    const [history, setHistory] = useState<string[]>([]);
+    const [selectedCards, setSelectedCards] = useState<CardData[]>([]);
+    const [gameStarted, setGameStarted] = useState(false);
+    const [gameState, setGameState] = useState<GameState | null>(null);
+    const [gameFinished, setGameFinished] = useState(false);
+    const [ranking, setRanking] = useState<{ position: number; name: string }[]>([]);
+    const historyRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-
-        let userStorage = JSON.parse(localStorage.getItem("user"));
-        if(userStorage){
-            cambiarUser(userStorage)
+        const userStorage = JSON.parse(localStorage.getItem("user") || "null");
+        if (userStorage && !user) {
+            cambiarUser(userStorage);
         }
-        joinRoom(idRoom)
+        
+        if (user && idRoom) {
+            socket.emit('message', {
+                action: "joinRoom",
+                roomId: idRoom,
+                playerId: user.id,
+                playerName: user.name,
+            });
+        }
+
         function onConnect() {
             setIsConnected(true);
         }
@@ -136,64 +105,64 @@ function Room() {
             setIsConnected(false);
         }
 
-        function onFooEvent(value:any) {
-            // @ts-ignore
-            setFooEvents(previous => [...previous, value]);
+        function onSendPlayerList(value: PlayerInfo[]) {
+            setPlayers(value);
         }
-        function onMessage(value:any) {
-            // @ts-ignore
-            setFooEvents(previous => [...previous, value]);
-            console.log(value)
-        }
-        function onSendPlayerList(value:any) {
-            // @ts-ignore
-            console.log(`Sending playerlist`);
-            setPlayerList(value)
-            console.log(value)
-        }
-        function onSendHand(value:any) {
-            // @ts-ignore
-            console.log(value)
-            setHandList(value)
-        }
-        function onSendCurrentTurn(value:any) {
-            // @ts-ignore
-            console.log(`'onSendCurrentTurn`)
-            console.log(value)
-            setIsMyTurn(value)
 
+        function onSendHand(value: CardData[]) {
+            setHand(value || []);
+            setSelectedCards([]);
         }
-        function onSendCurrentPlayer(value:any) {
-            // @ts-ignore
-            console.log(`'onSendCurrentPlayer`)
-            console.log(value)
-            setCurrentPlayer(value)
+
+        function onSendCurrentTurn(value: boolean) {
+            setIsMyTurn(value);
         }
-        function onSendCardsOnPlay(value:any) {
-            // @ts-ignore
-            console.log(`onSendCardsOnPlay`)
-            console.log(value)
-            setCurrentCardsOnPlay(value)
+
+        function onSendCurrentPlayer(value: string) {
+            setCurrentPlayerName(value);
         }
-        function onSendHistoryMessages(value:any) {
-                    // @ts-ignore
-            console.log(`onSendHistoryMessages`)
-            console.log(value)
-            // setHistory([...history, value]);
-            history.push(value)
-            console.log(history)
+
+        function onSendCardsOnPlay(value: any[]) {
+            if (value && value.length > 0) {
+                const lastPlay = value[value.length - 1];
+                setCardsOnPlay(lastPlay.cardPlay || []);
+                setLastPlayType(lastPlay.playType === 'play' ? 'play' : 'pass');
+            } else {
+                setCardsOnPlay([]);
+                setLastPlayType(null);
+            }
+        }
+
+        function onSendHistoryMessages(value: string) {
+            setHistory(prev => [...prev.slice(-50), value]);
+        }
+
+        function onSendGameState(value: GameState) {
+            setGameState(value);
+            setGameStarted(true);
+        }
+
+        function onTableCleared() {
+            setCardsOnPlay([]);
+            setLastPlayType(null);
+        }
+
+        function onGameFinished(data: { message: string; ranking: { position: number; name: string }[] }) {
+            setGameFinished(true);
+            setRanking(data.ranking);
         }
 
         socket.on('connect', onConnect);
         socket.on('disconnect', onDisconnect);
-        socket.on('message', onMessage);
         socket.on('sendPlayerList', onSendPlayerList);
         socket.on('sendHand', onSendHand);
         socket.on('sendCurrentTurn', onSendCurrentTurn);
         socket.on('sendCurrentPlayer', onSendCurrentPlayer);
         socket.on('sendCardsOnPlay', onSendCardsOnPlay);
         socket.on('sendHistoryMessages', onSendHistoryMessages);
-        socket.on('foo', onFooEvent);
+        socket.on('sendGameState', onSendGameState);
+        socket.on('tableCleared', onTableCleared);
+        socket.on('gameFinished', onGameFinished);
 
         return () => {
             socket.off('connect', onConnect);
@@ -204,97 +173,215 @@ function Room() {
             socket.off('sendCurrentPlayer', onSendCurrentPlayer);
             socket.off('sendCardsOnPlay', onSendCardsOnPlay);
             socket.off('sendHistoryMessages', onSendHistoryMessages);
-
-            socket.off('message', onMessage);
-            socket.off('foo', onFooEvent);
+            socket.off('sendGameState', onSendGameState);
+            socket.off('tableCleared', onTableCleared);
+            socket.off('gameFinished', onGameFinished);
         };
-    }, []);
+    }, [user, idRoom]);
+
+    useEffect(() => {
+        if (historyRef.current) {
+            historyRef.current.scrollTop = historyRef.current.scrollHeight;
+        }
+    }, [history]);
+
+    const handleCardClick = (card: CardData) => {
+        if (!isMyTurn) return;
+        
+        if (selectedCards.find(c => c.rank === card.rank && c.suit === card.suit)) {
+            setSelectedCards(selectedCards.filter(c => !(c.rank === card.rank && c.suit === card.suit)));
+        } else {
+            const sameRankSelected = selectedCards.filter(c => c.rank === card.rank);
+            if (sameRankSelected.length === 0 || sameRankSelected.length < 4) {
+                if (sameRankSelected.length < 4) {
+                    setSelectedCards([...selectedCards, card]);
+                }
+            }
+        }
+    };
+
+    const playTurn = (action: 'play' | 'pass') => {
+        if (!user || !idRoom) return;
+        
+        if (action === 'play' && selectedCards.length === 0) {
+            return;
+        }
+
+        socket.emit('message', {
+            action: "playTurn",
+            roomId: idRoom,
+            playerId: user.id,
+            actionTurn: action,
+            cardsPlayed: selectedCards,
+        });
+
+        setSelectedCards([]);
+    };
+
+    const initGame = () => {
+        if (!idRoom) return;
+        
+        socket.emit('message', {
+            action: "initGame",
+            roomId: idRoom,
+        });
+    };
+
+    const getPlayerPosition = (playerName: string) => {
+        const index = players.findIndex(p => p.name === playerName);
+        if (index === -1) return 0;
+        return index;
+    };
+
+    const getPlayerCardCount = (playerId: string) => {
+        const player = players.find(p => p.id === playerId);
+        return player?.handLength || 0;
+    };
 
     return (
-        <>
-            <h1>Estoy en ROOM {idRoom}</h1>
-            <h1>Actualmente eres {user != null ? user.name : 'Nadie'}</h1>
-            <div style={{display: 'flex'}}>
-                <div style={{margin: 10}}>
-                    <h5>Usuarios conectados</h5>
-                    <ul>
-                        {
-                            playerList.map((player, index) =>
-                                <li key={ index }>{ player }</li>
-                            )
-                        }
-                    </ul>
+        <div className="room-container">
+            <header className="room-header">
+                <Link to="/" className="back-btn">← Salir</Link>
+                <div className="room-info">
+                    <h1>Sala {idRoom}</h1>
+                    <span className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
+                        {isConnected ? '●' : '○'}
+                    </span>
                 </div>
-                <div  style={{margin: 10}} >
-                    <h5>Historial</h5>
-                    {history.length > 0 ? (
-                        history.map((message, index) =>
-                            <p style={{fontSize: 8}} key={ index }>{ message }</p>
-                        )
-                    )  : (
-                        <p></p>
-                    )}
-
+                <div className="user-badge">
+                    {user?.name}
                 </div>
+            </header>
 
-            </div>
-            <div>
-                {isMyTurn ?
-                    <p><b>Es tu turno</b></p> :
-                    <p>Es turno de {currentPlayer}</p>}
-            </div>
-
-            <div>
-                <h3>
-                    Cartas en mesa
-                </h3>
-                <div>
-
-                    {currentCardsOnPlay.length > 0 ? (
-                            <CardList cardList={currentCardsOnPlay[currentCardsOnPlay.length-1].cardPlay} selectedCards={cartasSeleccionadas}/>
-                    ) : (
-                        <p>No hay cartas en juego.</p>
-                    )}
-
-                </div>
-            </div>
-
-            <h3>
-                Mano
-            </h3>
-
-            <div>
-
-
-                <CardList cardList={handList} handleCartaClick={handleCartaClick} selectedCards={cartasSeleccionadas}/>
-
-                {/*<div className="baraja-container">*/}
-                {/*    {handList.map((carta, index) => (*/}
-                {/*        <Card key={index} cartasSeleccionadas={cartasSeleccionadas} searchElement={carta}*/}
-                {/*              onClick={() => handleCartaClick(carta)}/>*/}
-                {/*    ))}*/}
-                {/*</div>*/}
-            </div>
-            <div>
-                <button  onClick={() => initGame()}>
-                    Init game
-                </button>
-            </div>
-
-            {isMyTurn ?
-                <div>
-                    <button  onClick={() => playTurn('play')}>
-                        Jugar
-                    </button>
-
-                    <button  onClick={() => playTurn('pass')}>
-                        Pasar
+            {gameFinished ? (
+                <div className="game-finished">
+                    <h2>🏆 ¡Partida Terminada!</h2>
+                    <div className="ranking">
+                        {ranking.map((entry) => (
+                            <div key={entry.position} className={`ranking-item rank-${entry.position}`}>
+                                <span className="position">#{entry.position}</span>
+                                <span className="name">{entry.name}</span>
+                                <span className="role">
+                                    {entry.position === 1 && '🥇 Presidente'}
+                                    {entry.position === 2 && '🥈 Vicepresidente'}
+                                    {entry.position === ranking.length && '💩 Escoria'}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                    <button onClick={() => window.location.reload()} className="restart-btn">
+                        Nueva Partida
                     </button>
                 </div>
-                : <></>
-            }
-        </>
-    )
+            ) : (
+                <main className="room-main">
+                    <div className="players-bar">
+                        {players.map((player, index) => (
+                            <div 
+                                key={player.id} 
+                                className={`player-chip ${player.name === currentPlayerName ? 'active-turn' : ''}`}
+                            >
+                                <span className="player-name">{player.name}</span>
+                                <span className="card-count">{player.handLength}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="game-table">
+                        <div className="turn-indicator">
+                            {isMyTurn ? (
+                                <span className="your-turn">¡Es tu turno!</span>
+                            ) : (
+                                <span className="waiting">Turno de {currentPlayerName}</span>
+                            )}
+                            {gameState?.revolutionActive && (
+                                <span className="revolution-badge">¡REVOLUCIÓN!</span>
+                            )}
+                            {gameState?.round && (
+                                <span className="round-badge">Ronda {gameState.round}</span>
+                            )}
+                        </div>
+
+                        <div className="table-center">
+                            <div className="cards-on-table">
+                                {cardsOnPlay.length > 0 ? (
+                                    cardsOnPlay.map((card, index) => (
+                                        <Card key={index} card={card} />
+                                    ))
+                                ) : (
+                                    <div className="empty-table">
+                                        <span>Mesa vacía</span>
+                                    </div>
+                                )}
+                            </div>
+                            {lastPlayType === 'pass' && cardsOnPlay.length === 0 && (
+                                <div className="pass-indicator">PASÓ</div>
+                            )}
+                        </div>
+
+                        <div className="history-container" ref={historyRef}>
+                            {history.slice(-10).map((msg, index) => (
+                                <div key={index} className="history-message">{msg}</div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="player-hand">
+                        <h3>Tu mano ({hand.length} cartas)</h3>
+                        <div className="hand-cards">
+                            {hand.map((card, index) => (
+                                <Card
+                                    key={index}
+                                    card={card}
+                                    onClick={() => handleCardClick(card)}
+                                    selected={selectedCards.some(c => c.rank === card.rank && c.suit === card.suit)}
+                                    disabled={!isMyTurn}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="action-bar">
+                        {selectedCards.length > 0 && (
+                            <span className="selection-info">
+                                {selectedCards.length} carta{selectedCards.length > 1 ? 's' : ''} seleccionada{selectedCards.length > 1 ? 's' : ''}
+                            </span>
+                        )}
+                        
+                        {isMyTurn && gameStarted ? (
+                            <>
+                                <button 
+                                    className="action-btn play-btn"
+                                    onClick={() => playTurn('play')}
+                                    disabled={selectedCards.length === 0}
+                                >
+                                    Jugar
+                                </button>
+                                <button 
+                                    className="action-btn pass-btn"
+                                    onClick={() => playTurn('pass')}
+                                >
+                                    Pasar
+                                </button>
+                            </>
+                        ) : !gameStarted ? (
+                            <button 
+                                className="action-btn start-btn"
+                                onClick={initGame}
+                                disabled={players.length < 2}
+                            >
+                                Iniciar Partida {players.length < 2 && `(${players.length}/2 jugadores)`}
+                            </button>
+                        ) : (
+                            <span className="waiting-action">Esperando a {currentPlayerName}...</span>
+                        )}
+                    </div>
+                </main>
+            )}
+        </div>
+    );
 }
 
-export default Room
+import { useParams } from "react-router";
+
+export default Room;

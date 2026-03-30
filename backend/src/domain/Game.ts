@@ -1,7 +1,7 @@
 import { Player } from "./Player";
 import { PlayerPlay } from "./PlayerPlay";
 import { Card } from "./Card";
-import { GameSettings, GameSettingsManager, DEFAULT_GAME_SETTINGS } from "./GameSettings";
+import { GameSettings, GameSettingsManager } from "./GameSettings";
 
 export type RoundType = "normal" | "stairs";
 export type PlayType = "play" | "pass";
@@ -10,6 +10,14 @@ export interface GameEvent {
   type: "tableCleared" | "roundFinished" | "gameFinished" | "playerEliminated" | "revolutionStarted" | "revolutionEnded";
   message: string;
   data?: unknown;
+}
+
+export interface TurnInfo {
+  currentPlayerId: string;
+  currentPlayerName: string;
+  isMyTurn: boolean;
+  passCount: number;
+  playersWithCards: number;
 }
 
 export class Game {
@@ -23,6 +31,9 @@ export class Game {
   private tableCleared: boolean;
   private revolutionActive: boolean;
   private settingsManager: GameSettingsManager;
+  private consecutivePasses: number;
+  private lastPlayerWhoPlayed: Player | null;
+  private activePlayerCount: number;
 
   constructor(players: Player[], settings: Partial<GameSettings> = {}) {
     this.players = players;
@@ -35,15 +46,15 @@ export class Game {
     this.tableCleared = false;
     this.revolutionActive = false;
     this.settingsManager = new GameSettingsManager(settings);
-    this.events = [];
-    this.tableCleared = false;
+    this.consecutivePasses = 0;
+    this.lastPlayerWhoPlayed = null;
+    this.activePlayerCount = players.length;
   }
 
   initRound(currentPlayerIndex: number = 0) {
     if (this.revolutionActive) {
       this.revolutionActive = false;
-      this.addEvent("revolutionEnded", "La revolución ha terminado");
-      console.log("La revolución ha terminado");
+      this.addEvent("revolutionEnded", "La revolucion ha terminado");
     }
     
     this.currentRound++;
@@ -51,10 +62,15 @@ export class Game {
     this.currentPlayerIndex = currentPlayerIndex;
     this.currentPlayer = this.players[this.currentPlayerIndex];
     this.tableCleared = false;
+    this.consecutivePasses = 0;
+    this.lastPlayerWhoPlayed = null;
+    this.activePlayerCount = this.getActivePlayersCount();
 
-    this.addEvent("roundFinished", `Ronda número ${this.currentRound}`);
-    console.log(`\n\nRonda número ${this.currentRound}`);
-    console.log(`Empìeza el jugador: ${this.currentPlayer.getName()}`);
+    this.addEvent("roundFinished", `Ronda ${this.currentRound} - ${this.currentPlayer.getName()} inicia`);
+  }
+
+  private getActivePlayersCount(): number {
+    return this.players.filter(p => p.getHandLength() > 0).length;
   }
 
   private addEvent(type: GameEvent["type"], message: string, data?: unknown) {
@@ -68,50 +84,29 @@ export class Game {
   private cleanTable() {
     this.cardsOnPlay = [];
     this.tableCleared = true;
-    this.addEvent("tableCleared", "¡La mesa ha sido limpiada por un 2!");
-    console.log("¡La mesa ha sido limpiada por un 2!");
-  }
-
-  finishRound() {
-    const lastPlays = this.getLastPlayOnTable();
-
-    if (lastPlays != null) {
-      const playerWinnerIndex = this.players.findIndex(
-        (player) => player === lastPlays.getPlayer(),
-      );
-      this.initRound(playerWinnerIndex);
-    }
+    this.consecutivePasses = 0;
+    this.addEvent("tableCleared", "La mesa ha sido limpiada por un 2!");
   }
 
   private getLastPlayOnTable(): PlayerPlay | null {
-    let index = this.cardsOnPlay.length - 1;
-    while (index >= 0 && index < this.cardsOnPlay.length) {
-      if (this.cardsOnPlay[index].getPlayType() === "play") {
-        return this.cardsOnPlay[index];
+    for (let i = this.cardsOnPlay.length - 1; i >= 0; i--) {
+      if (this.cardsOnPlay[i].getPlayType() === "play") {
+        return this.cardsOnPlay[i];
       }
-      index--;
     }
     return null;
   }
 
-  private isRoundFinished(): boolean {
-    const lastPlay = this.getLastPlayOnTable();
-    if (lastPlay != null) {
-      return this.currentPlayer === lastPlay.getPlayer();
-    }
-    return false;
+  private getActivePlayers(): Player[] {
+    return this.players.filter(p => p.getHandLength() > 0);
   }
 
-  playTurn(player: Player, playType: PlayType, cardsPlayed: number[]): GameEvent | null {
-    console.log(`\n Playturn`);
+  playTurn(player: Player, playType: PlayType, cardsPlayed: number[]): { event: GameEvent | null; turnInfo: TurnInfo } {
     if (this.currentPlayer !== player) {
-      console.error(`Aún no te toca ${player.getName()}`);
-      return null;
+      return { event: null, turnInfo: this.getTurnInfo() };
     }
 
     if (playType === "play") {
-      console.log(` ---- ${player.getName()} juega ----`);
-
       const lastPlay = this.getLastPlayOnTable();
       const playedCards = player.playCard(
         cardsPlayed,
@@ -123,18 +118,23 @@ export class Game {
       );
 
       if (playedCards.length <= 0) {
-        console.log("No se pudieron jugar las cartas");
-        return null;
+        return { event: null, turnInfo: this.getTurnInfo() };
       }
 
       if (this.containsTwo(playedCards)) {
         this.cleanTable();
+        this.lastPlayerWhoPlayed = player;
       }
 
       if (this.settingsManager.shouldEnableRevolution() && playedCards.length === 4) {
         this.revolutionActive = true;
-        this.addEvent("revolutionStarted", "¡REVOLUCIÓN! La jerarquía se invierte");
-        console.log("¡REVOLUCIÓN! La jerarquía se invierte");
+        this.addEvent("revolutionStarted", "REVOLUCION! La jerarquia se invierte");
+      }
+
+      this.consecutivePasses = 0;
+      
+      if (!this.tableCleared) {
+        this.lastPlayerWhoPlayed = player;
       }
 
       const playerCopy = Object.assign(Object.create(Object.getPrototypeOf(player)), player);
@@ -142,67 +142,81 @@ export class Game {
       playerCopy.setSocket(null);
       this.cardsOnPlay.push(new PlayerPlay(playerCopy, playType, playedCards));
 
-      if (this.currentPlayer.getHandLength() === 0) {
-        console.log(` ---- ${this.currentPlayer.getName()} se descarta ----`);
+      if (player.getHandLength() === 0) {
         this.rankingPlayers.push(player);
+        this.activePlayerCount--;
         this.addEvent("playerEliminated", `${player.getName()} se ha descartado`);
       }
     }
 
     if (playType === "pass") {
-      console.log(` ---- ${player.getName()} PASA ----`);
       const playerCopy = Object.assign(Object.create(Object.getPrototypeOf(player)), player);
       playerCopy.setHand([]);
       playerCopy.setSocket(null);
       this.cardsOnPlay.push(new PlayerPlay(playerCopy, playType, []));
+      this.consecutivePasses++;
     }
 
-    if (this.rankingPlayers.length === this.players.length - 1) {
-      console.log(`SE TERMINA EL JUEGO`);
-      this.rankingPlayers.push(this.currentPlayer);
+    if (this.activePlayerCount === 0 || this.rankingPlayers.length === this.players.length - 1) {
+      if (this.rankingPlayers.length < this.players.length - 1) {
+        const remainingPlayers = this.getActivePlayers();
+        if (remainingPlayers.length > 0) {
+          this.rankingPlayers.push(...remainingPlayers);
+        }
+      }
       this.addEvent("gameFinished", "La partida ha terminado");
-      return this.events[this.events.length - 1];
+      return { event: this.events[this.events.length - 1], turnInfo: this.getTurnInfo() };
+    }
+
+    if (this.consecutivePasses >= this.activePlayerCount) {
+      this.addEvent("roundFinished", "Todos han pasado - ronda terminada");
+      if (this.lastPlayerWhoPlayed) {
+        const winnerIndex = this.players.findIndex(p => p.getId() === this.lastPlayerWhoPlayed!.getId());
+        this.initRound(winnerIndex);
+      } else {
+        this.initRound(this.currentPlayerIndex);
+      }
+      return { event: this.events[this.events.length - 1], turnInfo: this.getTurnInfo() };
     }
 
     if (!this.tableCleared) {
-      this.checkNextPlayerCards();
+      this.moveToNextPlayer();
     } else {
-      console.log("El jugador que cortó juega de nuevo");
       this.tableCleared = false;
     }
 
-    console.log(`Current player: ${this.currentPlayer.getName()}`);
-
-    if (this.isRoundFinished()) {
-      console.log("Finalizado la ronda");
-      this.finishRound();
-    } else {
-      console.log("Se sigue jugando");
-    }
-
-    return this.events[this.events.length - 1] || null;
+    return { event: this.events[this.events.length - 1] || null, turnInfo: this.getTurnInfo() };
   }
 
-  private checkNextPlayerCards() {
-    this.currentPlayerIndex++;
-    let count = 0;
-    this.currentPlayer = this.players[this.currentPlayerIndex % this.players.length];
+  private moveToNextPlayer() {
+    const activePlayers = this.getActivePlayers();
+    if (activePlayers.length <= 1) return;
 
-    while (
+    do {
+      this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
+      this.currentPlayer = this.players[this.currentPlayerIndex];
+    } while (
       this.currentPlayer.getHandLength() === 0 &&
-      count < this.players.length - 1
-    ) {
-      console.log(
-        `${this.currentPlayer.getName()} no tiene cartas, pasamos al siguiente`,
-      );
-      count++;
-      this.currentPlayerIndex++;
-      this.currentPlayer = this.players[this.currentPlayerIndex % this.players.length];
-    }
+      this.currentPlayerIndex !== this.findLastPlayerWhoPlayedIndex()
+    );
+  }
+
+  private findLastPlayerWhoPlayedIndex(): number {
+    if (!this.lastPlayerWhoPlayed) return -1;
+    return this.players.findIndex(p => p.getId() === this.lastPlayerWhoPlayed!.getId());
+  }
+
+  getTurnInfo(): TurnInfo {
+    return {
+      currentPlayerId: this.currentPlayer.getId(),
+      currentPlayerName: this.currentPlayer.getName(),
+      isMyTurn: true,
+      passCount: this.consecutivePasses,
+      playersWithCards: this.activePlayerCount
+    };
   }
 
   printRankingPlayers() {
-    console.log(`Imprimiendo ranking`);
     this.rankingPlayers.forEach((player, index) => {
       console.log(`#${index + 1}. ${player.getName()}`);
     });
@@ -234,5 +248,13 @@ export class Game {
 
   isTableCleared() {
     return this.tableCleared;
+  }
+
+  isRevolutionActive() {
+    return this.revolutionActive;
+  }
+
+  getConsecutivePasses() {
+    return this.consecutivePasses;
   }
 }
