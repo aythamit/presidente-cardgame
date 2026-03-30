@@ -3,10 +3,10 @@ import './index.css'
 import {BrowserRouter, Route, Routes} from "react-router";
 import App from './App.tsx'
 import Room from "./components/Room.tsx";
+import Rules from "./pages/Rules.tsx";
+import Settings from "./pages/Settings.tsx";
 import UserProvider from './providers/UserProvider.tsx';
 
-
-// @ts-ignore
 createRoot(document.getElementById('root')!).render(
     <UserProvider>
       <BrowserRouter>
@@ -15,8 +15,9 @@ createRoot(document.getElementById('root')!).render(
               <Route path="room">
                   <Route path=":idRoom" element={<Room />} />
               </Route>
+              <Route path="rules" element={<Rules />} />
+              <Route path="settings" element={<Settings />} />
           </Routes>
       </BrowserRouter>
     </UserProvider>
-        ,
 )
