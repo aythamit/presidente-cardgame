@@ -170,50 +170,68 @@ class RoomController {
       })
   }
 
-  public playTurn(roomId: string, playerId: string, actionTurn:any,cardsPlayed:any) : void {
+  public playTurn(roomId: string, playerId: string, actionTurn:any, cardsPlayed:any) : void {
 
     const room = this.rooms.get(roomId);
     if (!room) {
       throw new Error(`sendPlayerList: La sala ${roomId} no existe.`);
     }
 
-    let player = room.players.find((p) => p.getId() === playerId);
+    const player = room.players.find((p) => p.getId() === playerId);
 
-    if (player){
-      let arrayIndexCards:number[] = [];
-      // @ts-ignore
-      cardsPlayed.forEach(cardPlayed => {
+    if (player && room.game) {
+      const arrayIndexCards: number[] = [];
+      
+      cardsPlayed.forEach((cardPlayed: { rank: number; suit: string }) => {
         player.getHand().forEach((cardHand, index) => {
-          if (cardPlayed.rank == cardHand.getRank() && cardPlayed.suit == cardHand.getSuit()){
-            console.log(cardHand, index)
+          if (cardPlayed.rank === cardHand.getRank() && cardPlayed.suit === cardHand.getSuit()) {
+            console.log(cardHand, index);
             arrayIndexCards.push(index);
           }
-        })
-      })
-      room.game?.playTurn(player, actionTurn, arrayIndexCards);
+        });
+      });
 
-      this.sendHistoryMessage(roomId, `${player.getName()} ha realizado la siguiente acción: ${actionTurn == 'pass' ? 'Pasó' : 'Jugó carta'}`);
+      const event = room.game.playTurn(player, actionTurn, arrayIndexCards);
 
-      room.players.forEach((player) => {
-
-        let actualPlayer = room.game?.getCurrentPlayer()
-        if (actualPlayer?.getId() == player.getId()) {
-          console.log('sendCurrentTurn')
-          player.getSocket()?.emit('sendCurrentTurn', true); // Usa emit de socket.io
+      if (event) {
+        this.sendHistoryMessage(roomId, event.message);
+        
+        if (event.type === "tableCleared") {
+          room.players.forEach(p => {
+            p.getSocket()?.emit("tableCleared", { message: event.message });
+          });
         }
-        console.log(`sendCurrentPlayer ${room.game?.getCurrentPlayer().getName()}`)
+        
+        if (event.type === "gameFinished" && room.game) {
+          const game = room.game;
+          const ranking = game.getRankingPlayers().map(pl => pl.getName());
+          room.players.forEach(p => {
+            p.getSocket()?.emit("gameFinished", { 
+              message: event.message,
+              ranking
+            });
+          });
+        }
+      } else {
+        this.sendHistoryMessage(roomId, `${player.getName()} ha realizado la siguiente acción: ${actionTurn === "pass" ? "Pasó" : "Jugó carta"}`);
+      }
 
-        player.getSocket()?.emit('sendCurrentPlayer', room.game?.getCurrentPlayer().getName()); // Usa emit de socket.io
-        console.log(`sendCardsOnPlay`)
-        console.log(room.game?.getCardsOnPlay())
-
-        console.log(player.getName())
-
-        player.getSocket()?.emit('sendCardsOnPlay', room.game?.getCardsOnPlay()); // Usa emit de socket.io
-
-      })
-
-
+      room.players.forEach((p) => {
+        const actualPlayer = room.game?.getCurrentPlayer();
+        if (actualPlayer?.getId() === p.getId()) {
+          console.log("sendCurrentTurn");
+          p.getSocket()?.emit("sendCurrentTurn", true);
+        } else {
+          p.getSocket()?.emit("sendCurrentTurn", false);
+        }
+        console.log(`sendCurrentPlayer ${room.game?.getCurrentPlayer().getName()}`);
+        p.getSocket()?.emit("sendCurrentPlayer", room.game?.getCurrentPlayer().getName());
+        console.log(`sendCardsOnPlay`);
+        console.log(room.game?.getCardsOnPlay());
+        console.log(p.getName());
+        p.getSocket()?.emit("sendCardsOnPlay", room.game?.getCardsOnPlay());
+        p.getSocket()?.emit("sendHand", room.game?.getPlayer(p.getId())?.getHand());
+      });
     }
   }
 }
