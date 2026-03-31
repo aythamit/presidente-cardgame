@@ -5,15 +5,15 @@ import UserContext from "../context/UserContext.tsx";
 import '../css/Room.css';
 
 const RANK_DISPLAY: Record<number, string> = {
-    2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 7: "7",
-    8: "8", 9: "9", 10: "10", 11: "J", 12: "Q", 13: "K", 14: "A"
+    1: "1", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 7: "7",
+    10: "10", 11: "11", 12: "12"
 };
 
 const SUIT_SYMBOLS: Record<string, { symbol: string; color: string }> = {
-    "Treboles": { symbol: "♣", color: "black" },
-    "Diamantes": { symbol: "♦", color: "red" },
-    "Corazones": { symbol: "♥", color: "red" },
-    "Picas": { symbol: "♠", color: "black" }
+    "Espadas": { symbol: "♠", color: "black" },
+    "Bastos": { symbol: "♣", color: "black" },
+    "Oros": { symbol: "♦", color: "red" },
+    "Copas": { symbol: "♥", color: "red" }
 };
 
 interface PlayerInfo {
@@ -34,19 +34,55 @@ interface GameState {
     tableCleared: boolean;
 }
 
-function Card({ card, onClick, selected, disabled }: { 
+const SUIT_ORDER: Record<string, number> = {
+    "Oros": 0,
+    "Copas": 1,
+    "Espadas": 2,
+    "Bastos": 3,
+};
+
+function DraggableCard({ 
+    card, 
+    onClick, 
+    selected, 
+    disabled,
+    onDragStart,
+    onDragOver,
+    onDrop,
+    index,
+    draggingIndex
+}: { 
     card: CardData; 
     onClick?: () => void; 
     selected?: boolean;
     disabled?: boolean;
+    onDragStart?: (index: number) => void;
+    onDragOver?: (index: number) => void;
+    onDrop?: (index: number) => void;
+    index?: number;
+    draggingIndex?: number | null;
 }) {
     const suitInfo = SUIT_SYMBOLS[card.suit] || { symbol: card.suit, color: "black" };
     const rankDisplay = RANK_DISPLAY[card.rank] || card.rank;
+    const isDragging = draggingIndex === index;
     
     return (
         <div 
-            className={`card ${selected ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}
+            className={`card ${selected ? 'selected' : ''} ${disabled ? 'disabled' : ''} ${isDragging ? 'dragging' : ''}`}
             onClick={disabled ? undefined : onClick}
+            onDragStart={(e) => {
+                e.dataTransfer.setData('text/plain', index?.toString() || '0');
+                onDragStart?.(index || 0);
+            }}
+            onDragOver={(e) => {
+                e.preventDefault();
+                onDragOver?.(index || 0);
+            }}
+            onDrop={(e) => {
+                e.preventDefault();
+                onDrop?.(index || 0);
+            }}
+            draggable={!disabled}
             style={{ color: suitInfo.color }}
         >
             <div className="card-corner top-left">
@@ -64,6 +100,15 @@ function Card({ card, onClick, selected, disabled }: {
     );
 }
 
+function sortHandByRank(cards: CardData[]): CardData[] {
+    return [...cards].sort((a, b) => {
+        if (a.rank !== b.rank) {
+            return a.rank - b.rank;
+        }
+        return (SUIT_ORDER[a.suit] || 0) - (SUIT_ORDER[b.suit] || 0);
+    });
+}
+
 function Room() {
     const { user, cambiarUser } = useContext(UserContext);
     const { idRoom } = useParams<{ idRoom: string }>();
@@ -77,6 +122,8 @@ function Room() {
     const [history, setHistory] = useState<string[]>([]);
     const [selectedCards, setSelectedCards] = useState<CardData[]>([]);
     const [gameStarted, setGameStarted] = useState(false);
+    const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+    const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
     const [gameState, setGameState] = useState<GameState | null>(null);
     const [gameFinished, setGameFinished] = useState(false);
     const [ranking, setRanking] = useState<{ position: number; name: string }[]>([]);
@@ -198,6 +245,33 @@ function Room() {
                 }
             }
         }
+    };
+
+    const handleDragStart = (index: number) => {
+        setDraggingIndex(index);
+    };
+
+    const handleDragOver = (index: number) => {
+        setDropTargetIndex(index);
+    };
+
+    const handleDrop = (targetIndex: number) => {
+        if (draggingIndex === null || draggingIndex === targetIndex) {
+            setDraggingIndex(null);
+            setDropTargetIndex(null);
+            return;
+        }
+
+        const newHand = [...hand];
+        const [draggedCard] = newHand.splice(draggingIndex, 1);
+        newHand.splice(targetIndex, 0, draggedCard);
+        setHand(newHand);
+        setDraggingIndex(null);
+        setDropTargetIndex(null);
+    };
+
+    const handleSortHand = () => {
+        setHand(sortHandByRank(hand));
     };
 
     const playTurn = (action: 'play' | 'pass') => {
@@ -327,15 +401,25 @@ function Room() {
                     </div>
 
                     <div className="player-hand">
-                        <h3>Tu mano ({hand.length} cartas)</h3>
+                        <div className="player-hand-header">
+                            <h3>Tu mano ({hand.length} cartas)</h3>
+                            <button className="sort-btn" onClick={handleSortHand}>
+                                Ordenar
+                            </button>
+                        </div>
                         <div className="hand-cards">
                             {hand.map((card, index) => (
-                                <Card
+                                <DraggableCard
                                     key={index}
                                     card={card}
                                     onClick={() => handleCardClick(card)}
                                     selected={selectedCards.some(c => c.rank === card.rank && c.suit === card.suit)}
                                     disabled={!isMyTurn}
+                                    onDragStart={handleDragStart}
+                                    onDragOver={handleDragOver}
+                                    onDrop={handleDrop}
+                                    index={index}
+                                    draggingIndex={draggingIndex}
                                 />
                             ))}
                         </div>

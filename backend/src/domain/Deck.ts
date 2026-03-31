@@ -1,11 +1,9 @@
 import {Card, SuitType, CardRank} from "./Card";
 
-type CardData = { rank: CardRank; suit: SuitType };
-
 export class Deck {
   private deck: Card[];
-  private suits: SuitType[] = ["Treboles", "Diamantes", "Corazones", "Picas"];
-  private ranks: CardRank[] = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+  private suits: SuitType[] = ["Espadas", "Bastos", "Oros", "Copas"];
+  private ranks: CardRank[] = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12];
 
   constructor() {
     this.deck = [];
@@ -38,6 +36,10 @@ export class Deck {
   }
 
   static getStartingCard(): { rank: CardRank; suit: SuitType } {
-    return { rank: 3, suit: "Treboles" };
+    return { rank: 1, suit: "Oros" };
+  }
+
+  static getTotalCards(): number {
+    return 40;
   }
 }
