@@ -1,8 +1,10 @@
 .room-container {
     min-height: 100vh;
+    height: 100vh;
     background: linear-gradient(135deg, #1a472a 0%, #2d5a3d 50%, #1a472a 100%);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .room-header {
@@ -115,16 +117,16 @@
 }
 
 .game-table {
-    flex: 1;
     background: #0f5132;
     border-radius: 20px;
-    padding: 20px;
+    padding: 15px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 15px;
+    gap: 10px;
     border: 8px solid #0a3622;
-    min-height: 300px;
+    min-height: 200px;
+    max-height: 350px;
 }
 
 .turn-indicator {
@@ -172,12 +174,13 @@
 }
 
 .table-center {
-    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 10px;
+    flex: 1;
+    min-height: 150px;
 }
 
 .cards-on-table {
@@ -230,6 +233,7 @@
     background: rgba(0, 0, 0, 0.3);
     padding: 15px;
     border-radius: 15px;
+    max-height: 200px;
 }
 
 .player-hand h3 {
