@@ -18,7 +18,7 @@ function App() {
 
   function generateRandomString(length: number): string {
     let result = '';
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     const charactersLength = characters.length;
     for (let i = 0; i < length; i++) {
       result += characters.charAt(Math.floor(Math.random() * charactersLength));
@@ -41,7 +41,8 @@ function App() {
 
   function joinRoom(roomId: string) {
     if (user != null && roomId) {
-      navigate(`/room/${roomId}`);
+      const normalizedRoomId = roomId.toUpperCase();
+      navigate(`/room/${normalizedRoomId}`);
     }
   }
 

@@ -91,7 +91,7 @@ function Room() {
         if (user && idRoom) {
             socket.emit('message', {
                 action: "joinRoom",
-                roomId: idRoom,
+                roomId: idRoom.toUpperCase(),
                 playerId: user.id,
                 playerName: user.name,
             });
@@ -209,7 +209,7 @@ function Room() {
 
         socket.emit('message', {
             action: "playTurn",
-            roomId: idRoom,
+            roomId: idRoom.toUpperCase(),
             playerId: user.id,
             actionTurn: action,
             cardsPlayed: selectedCards,
@@ -223,7 +223,7 @@ function Room() {
         
         socket.emit('message', {
             action: "initGame",
-            roomId: idRoom,
+            roomId: idRoom.toUpperCase(),
         });
     };
 
