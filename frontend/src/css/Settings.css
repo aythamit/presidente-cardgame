@@ -1,0 +1,152 @@
+.settings-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #fff;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #0f3460;
+}
+
+.back-btn {
+  background: #0f3460;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background 0.3s;
+}
+
+.back-btn:hover {
+  background: #e94560;
+}
+
+.settings-header h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.settings-section {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 25px;
+  border-radius: 12px;
+}
+
+.settings-section h2 {
+  margin-top: 0;
+  color: #00d9ff;
+  font-size: 1.3rem;
+  margin-bottom: 20px;
+}
+
+.setting-item {
+  margin-bottom: 20px;
+}
+
+.setting-item label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #fff;
+}
+
+.setting-item p {
+  margin: 5px 0 0 0;
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+.select-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.select-buttons button {
+  width: 50px;
+  height: 50px;
+  border: 2px solid #0f3460;
+  background: #0f3460;
+  color: #fff;
+  font-size: 1.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.select-buttons button:hover {
+  background: #1a4a7a;
+}
+
+.select-buttons button.active {
+  background: #e94560;
+  border-color: #e94560;
+}
+
+.setting-item.toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #0f3460;
+  padding: 15px 20px;
+  border-radius: 8px;
+}
+
+.toggle-btn {
+  width: 60px;
+  height: 30px;
+  background: #333;
+  border: none;
+  border-radius: 15px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.3s;
+}
+
+.toggle-btn.active {
+  background: #4ade80;
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.3s;
+}
+
+.toggle-btn.active .toggle-slider {
+  transform: translateX(30px);
+}
+
+.save-btn {
+  padding: 15px 30px;
+  font-size: 1.1rem;
+  background: #e94560;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.save-btn:hover {
+  background: #ff6b6b;
+  transform: scale(1.02);
+}
