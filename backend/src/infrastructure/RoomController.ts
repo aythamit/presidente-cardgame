@@ -124,8 +124,8 @@ class RoomController {
     room.players.forEach(player => {
       const playerData = room.game!.getPlayer(player.getId());
       
-      player.getSocket()?.emit('sendHand', playerData?.getHand() || []);
-      player.getSocket()?.emit('sendCardsOnPlay', room.game!.getCardsOnPlay());
+      player.getSocket()?.emit('sendHand', playerData?.getHand().map((card: any) => card.toJSON()) || []);
+      player.getSocket()?.emit('sendCardsOnPlay', room.game!.getCardsOnPlay().map((play: any) => play.toJSON()));
       player.getSocket()?.emit('sendCurrentPlayer', currentPlayer.getName());
       player.getSocket()?.emit('sendCurrentTurn', currentPlayer.getId() === player.getId());
       player.getSocket()?.emit('sendGameState', {
@@ -147,7 +147,7 @@ class RoomController {
     if (!player) return;
 
     if (actionTurn !== 'play' && actionTurn !== 'pass') return;
-
+    
     let cardIndices: number[] = [];
     
     if (actionTurn === 'play' && cardsPlayed && cardsPlayed.length > 0) {

@@ -15,16 +15,16 @@ const RANK_DISPLAY: Record<CardRank, string> = {
 };
 
 const RANK_VALUES: Record<CardRank, number> = {
-  1: 1,
-  2: 2,
-  3: 3,
-  4: 4,
-  5: 5,
-  6: 6,
-  7: 7,
-  10: 8,
-  11: 9,
-  12: 10,
+  1: 9,    // 1 is second highest
+  2: 10,   // 2 is highest
+  3: 1,    // 3 is lowest
+  4: 2,
+  5: 3,
+  6: 4,
+  7: 5,
+  10: 6,
+  11: 7,
+  12: 8,   // 12 is third highest
 };
 
 export class Card {
@@ -68,6 +68,13 @@ export class Card {
 
   compareTo(other: Card): number {
     return this.gameValue - other.gameValue;
+  }
+
+  toJSON(): { rank: number; suit: string } {
+    return {
+      rank: this.rank,
+      suit: this.suit
+    };
   }
 }
 

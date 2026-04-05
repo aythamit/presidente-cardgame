@@ -63,17 +63,22 @@ export class Player {
   ): Card[] {
     const cards: Card[] = [];
     const typeRound: RoundType = "normal";
-    const shallowCopy = [...this.hand];
-    let countCards = 0;
+    // Sort indices in descending order to remove from end first (avoids index shifting issues)
+    const sortedIndices = [...indexCards].sort((a, b) => b - a);
+    const handCopy = [...this.hand];
     
-    indexCards.forEach((cardIndex) => {
-      const card = this.popFromHand(cardIndex - countCards, this.hand);
-      countCards++;
-      if (card) {
-        cards.push(card);
+    sortedIndices.forEach((cardIndex) => {
+      if (cardIndex >= 0 && cardIndex < this.hand.length) {
+        const card = this.hand.splice(cardIndex, 1)[0];
+        if (card) {
+          cards.push(card);
+        }
+      } else {
+        console.log('Índice fuera de rango:', cardIndex, 'hand length:', this.hand.length);
       }
     });
     
+    // Check if valid play
     let cardsJugadas: Card[] | null = null;
     if (cardsOnPlay) {
       cardsJugadas = cardsOnPlay.getCardPlay();
@@ -81,7 +86,8 @@ export class Player {
     
     if (!this.canPlayCards(cards, cardsJugadas, typeRound, options)) {
       console.log("no se pudo jugar esta carta");
-      this.hand = shallowCopy;
+      // Restore hand
+      this.hand = handCopy;
       return [];
     }
 

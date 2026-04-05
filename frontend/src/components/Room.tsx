@@ -4,16 +4,21 @@ import { Link } from "react-router";
 import UserContext from "../context/UserContext.tsx";
 import '../css/Room.css';
 
+import espadasIcon from '../assets/espadas.png';
+import bastosIcon from '../assets/bastos.png';
+import copasIcon from '../assets/copas.png';
+import orosIcon from '../assets/oros.png';
+
 const RANK_DISPLAY: Record<number, string> = {
     1: "1", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 7: "7",
     10: "10", 11: "11", 12: "12"
 };
 
 const SUIT_SYMBOLS: Record<string, { symbol: string; color: string }> = {
-    "Espadas": { symbol: "♠", color: "black" },
-    "Bastos": { symbol: "♣", color: "black" },
-    "Oros": { symbol: "♦", color: "red" },
-    "Copas": { symbol: "♥", color: "red" }
+    "Espadas": { symbol: espadasIcon, color: "black" },
+    "Bastos": { symbol: bastosIcon, color: "black" },
+    "Oros": { symbol: orosIcon, color: "black" },
+    "Copas": { symbol: copasIcon, color: "black" }
 };
 
 interface PlayerInfo {
@@ -62,7 +67,7 @@ function DraggableCard({
     index?: number;
     draggingIndex?: number | null;
 }) {
-    const suitInfo = SUIT_SYMBOLS[card.suit] || { symbol: card.suit, color: "black" };
+    const suitInfo = SUIT_SYMBOLS[card.suit] || { symbol: '', color: "black" };
     const rankDisplay = RANK_DISPLAY[card.rank] || card.rank;
     const isDragging = draggingIndex === index;
     
@@ -83,28 +88,59 @@ function DraggableCard({
                 onDrop?.(index || 0);
             }}
             draggable={!disabled}
-            style={{ color: suitInfo.color }}
         >
             <div className="card-corner top-left">
                 <span className="card-rank">{rankDisplay}</span>
-                <span className="card-suit">{suitInfo.symbol}</span>
             </div>
             <div className="card-center">
-                <span className="card-suit-large">{suitInfo.symbol}</span>
+                <img src={suitInfo.symbol} alt={card.suit} className="card-suit-large" />
             </div>
             <div className="card-corner bottom-right">
                 <span className="card-rank">{rankDisplay}</span>
-                <span className="card-suit">{suitInfo.symbol}</span>
             </div>
         </div>
     );
 }
 
+function Card({ card }: { card: CardData }) {
+    const suitInfo = SUIT_SYMBOLS[card.suit] || { symbol: '', color: "black" };
+    const rankDisplay = RANK_DISPLAY[card.rank] || card.rank;
+    
+    return (
+        <div className="card">
+            <div className="card-corner top-left">
+                <span className="card-rank">{rankDisplay}</span>
+            </div>
+            <div className="card-center">
+                <img src={suitInfo.symbol} alt={card.suit} className="card-suit-large" />
+            </div>
+            <div className="card-corner bottom-right">
+                <span className="card-rank">{rankDisplay}</span>
+            </div>
+        </div>
+    );
+}
+
+// Game rank order: 2 (highest), 1, 12, 11, 10, 7, 6, 5, 4, 3 (lowest)
+const RANK_GAME_ORDER: Record<number, number> = {
+    2: 10,   // highest
+    1: 9,    // second highest
+    12: 8,
+    11: 7,
+    10: 6,
+    7: 5,
+    6: 4,
+    5: 3,
+    4: 2,
+    3: 1    // lowest
+};
+
 function sortHandByRank(cards: CardData[]): CardData[] {
     return [...cards].sort((a, b) => {
-        if (a.rank !== b.rank) {
-            return a.rank - b.rank;
-        }
+        // First sort by game rank (2 highest, 3 lowest)
+        const rankDiff = (RANK_GAME_ORDER[a.rank] || 0) - (RANK_GAME_ORDER[b.rank] || 0);
+        if (rankDiff !== 0) return rankDiff;
+        // Then by suit order if same rank
         return (SUIT_ORDER[a.suit] || 0) - (SUIT_ORDER[b.suit] || 0);
     });
 }
@@ -157,7 +193,16 @@ function Room() {
         }
 
         function onSendHand(value: CardData[]) {
-            setHand(value || []);
+            if (!value || value.length === 0) {
+                setHand([]);
+                setSelectedCards([]);
+                return;
+            }
+            
+            // Always sort incoming hand to maintain order
+            // This preserves sorted order after playing cards
+            const sortedHand = sortHandByRank(value);
+            setHand(sortedHand);
             setSelectedCards([]);
         }
 

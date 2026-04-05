@@ -64,4 +64,12 @@ export class PlayerPlay {
     const firstRank = this.cardPlay[0].getRank();
     return this.cardPlay.every(card => card.getRank() === firstRank);
   }
+
+  toJSON(): { cardPlay: { rank: number; suit: string }[]; playType: string; playerName: string } {
+    return {
+      cardPlay: this.cardPlay.map(card => card.toJSON()),
+      playType: this.playType,
+      playerName: this.player.getName()
+    };
+  }
 }

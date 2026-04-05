@@ -359,13 +359,14 @@
     transform: rotate(180deg);
 }
 
-.card-suit {
-    font-size: 0.65rem;
-    line-height: 1;
+.card-suit-icon {
+    width: 14px;
+    height: 14px;
 }
 
 .card-suit-large {
-    font-size: 1.8rem;
+    width: 30px;
+    height: 30px;
 }
 
 .card-center {
@@ -551,12 +552,14 @@
         font-size: 0.6rem;
     }
     
-    .card-suit-large {
-        font-size: 1.4rem;
+    .card-suit-icon {
+        width: 12px;
+        height: 12px;
     }
     
-    .card-suit {
-        font-size: 0.55rem;
+    .card-suit-large {
+        width: 26px;
+        height: 26px;
     }
     
     .card:hover:not(.disabled) {
@@ -621,8 +624,14 @@
         height: 58px;
     }
     
+    .card-suit-icon {
+        width: 10px;
+        height: 10px;
+    }
+    
     .card-suit-large {
-        font-size: 1.2rem;
+        width: 22px;
+        height: 22px;
     }
     
     .action-btn {

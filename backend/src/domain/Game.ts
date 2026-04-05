@@ -66,7 +66,8 @@ export class Game {
     this.lastPlayerWhoPlayed = null;
     this.activePlayerCount = this.getActivePlayersCount();
 
-    this.addEvent("roundFinished", `Ronda ${this.currentRound} - ${this.currentPlayer.getName()} inicia`);
+    // Don't emit roundStarted - just update internal state
+    // The frontend will know who's playing via sendCurrentPlayer
   }
 
   private getActivePlayersCount(): number {
@@ -168,8 +169,15 @@ export class Game {
       return { event: this.events[this.events.length - 1], turnInfo: this.getTurnInfo() };
     }
 
-    if (this.consecutivePasses >= this.activePlayerCount) {
-      this.addEvent("roundFinished", "Todos han pasado - ronda terminada");
+    // Check if round should end:
+    // - With 2 players: if one passes, the other wins the round (round ends)
+    // - With 3+ players: all must pass consecutively
+    const roundEnds = this.activePlayerCount === 2 
+      ? this.consecutivePasses >= 1 
+      : this.consecutivePasses >= this.activePlayerCount;
+
+    if (roundEnds) {
+      this.addEvent("roundFinished", "La ronda ha terminado");
       if (this.lastPlayerWhoPlayed) {
         const winnerIndex = this.players.findIndex(p => p.getId() === this.lastPlayerWhoPlayed!.getId());
         this.initRound(winnerIndex);
