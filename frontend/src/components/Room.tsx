@@ -52,8 +52,6 @@ function DraggableCard({
     selected, 
     disabled,
     onDragStart,
-    onDragOver,
-    onDrop,
     index,
     draggingIndex
 }: { 
@@ -62,8 +60,6 @@ function DraggableCard({
     selected?: boolean;
     disabled?: boolean;
     onDragStart?: (index: number) => void;
-    onDragOver?: (index: number) => void;
-    onDrop?: (index: number) => void;
     index?: number;
     draggingIndex?: number | null;
 }) {
@@ -78,14 +74,6 @@ function DraggableCard({
             onDragStart={(e) => {
                 e.dataTransfer.setData('text/plain', index?.toString() || '0');
                 onDragStart?.(index || 0);
-            }}
-            onDragOver={(e) => {
-                e.preventDefault();
-                onDragOver?.(index || 0);
-            }}
-            onDrop={(e) => {
-                e.preventDefault();
-                onDrop?.(index || 0);
             }}
             draggable={!disabled}
         >
@@ -296,25 +284,6 @@ function Room() {
         setDraggingIndex(index);
     };
 
-    const handleDragOver = (index: number) => {
-        setDropTargetIndex(index);
-    };
-
-    const handleDrop = (targetIndex: number) => {
-        if (draggingIndex === null || draggingIndex === targetIndex) {
-            setDraggingIndex(null);
-            setDropTargetIndex(null);
-            return;
-        }
-
-        const newHand = [...hand];
-        const [draggedCard] = newHand.splice(draggingIndex, 1);
-        newHand.splice(targetIndex, 0, draggedCard);
-        setHand(newHand);
-        setDraggingIndex(null);
-        setDropTargetIndex(null);
-    };
-
     const handleSortHand = () => {
         setHand(sortHandByRank(hand));
     };
@@ -344,11 +313,6 @@ function Room() {
             action: "initGame",
             roomId: idRoom.toUpperCase(),
         });
-    };
-
-    const getPlayerCardCount = (playerId: string) => {
-        const player = players.find(p => p.id === playerId);
-        return player?.handLength || 0;
     };
 
     return (
@@ -455,8 +419,6 @@ function Room() {
                                     selected={selectedCards.some(c => c.rank === card.rank && c.suit === card.suit)}
                                     disabled={!isMyTurn}
                                     onDragStart={handleDragStart}
-                                    onDragOver={handleDragOver}
-                                    onDrop={handleDrop}
                                     index={index}
                                     draggingIndex={draggingIndex}
                                 />
