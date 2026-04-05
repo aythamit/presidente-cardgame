@@ -1,10 +1,15 @@
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
 import UserContext from "../context/UserContext.tsx";
 
-function UserProvider({ children }) {
-    const [user, setUser] = useState(null);
+interface UserData {
+    id: string;
+    name: string;
+}
 
-    const cambiarUser = (userObj:object) => {
+function UserProvider({ children }: { children: ReactNode }) {
+    const [user, setUser] = useState<UserData | null>(null);
+
+    const cambiarUser = (userObj: UserData | null) => {
         setUser(userObj);
     };
 

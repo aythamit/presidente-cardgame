@@ -1,7 +1,17 @@
 import React, { createContext } from 'react';
 
-const UserContext = createContext({
-    user: {},
+interface UserData {
+    id: string;
+    name: string;
+}
+
+interface UserContextType {
+    user: UserData | null;
+    cambiarUser: (user: UserData | null) => void;
+}
+
+const UserContext = createContext<UserContextType>({
+    user: null,
     cambiarUser: () => {}
 });
 

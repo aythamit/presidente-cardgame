@@ -159,16 +159,16 @@ function Room() {
     const [selectedCards, setSelectedCards] = useState<CardData[]>([]);
     const [gameStarted, setGameStarted] = useState(false);
     const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
-    const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
     const [gameState, setGameState] = useState<GameState | null>(null);
     const [gameFinished, setGameFinished] = useState(false);
     const [ranking, setRanking] = useState<{ position: number; name: string }[]>([]);
     const historyRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        const userStorage = JSON.parse(localStorage.getItem("user") || "null");
-        if (userStorage && !user) {
-            cambiarUser(userStorage);
+        const userStorage = localStorage.getItem("user");
+        const parsedUser = userStorage ? JSON.parse(userStorage) as { id: string; name: string } : null;
+        if (parsedUser && !user) {
+            cambiarUser(parsedUser);
         }
         
         if (user && idRoom) {
@@ -346,12 +346,6 @@ function Room() {
         });
     };
 
-    const getPlayerPosition = (playerName: string) => {
-        const index = players.findIndex(p => p.name === playerName);
-        if (index === -1) return 0;
-        return index;
-    };
-
     const getPlayerCardCount = (playerId: string) => {
         const player = players.find(p => p.id === playerId);
         return player?.handLength || 0;
@@ -395,7 +389,7 @@ function Room() {
             ) : (
                 <main className="room-main">
                     <div className="players-bar">
-                        {players.map((player, index) => (
+                        {players.map((player) => (
                             <div 
                                 key={player.id} 
                                 className={`player-chip ${player.name === currentPlayerName ? 'active-turn' : ''}`}

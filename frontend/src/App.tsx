@@ -8,10 +8,18 @@ import { Link, useNavigate } from "react-router";
 import UserContext from "./context/UserContext.tsx";
 import './App.css';
 
+interface UserData {
+    id: string;
+    name: string;
+}
+
+interface SocketMessage {
+    [key: string]: unknown;
+}
+
 function App() {
-  const [fooEvents, setFooEvents] = useState([]);
+  const [fooEvents, setFooEvents] = useState<SocketMessage[]>([]);
   const [isConnected, setIsConnected] = useState(socket.connected);
-  const [room, setRoom] = useState<string | null>(null);
   const [joinRoomId, setJoinRoomId] = useState('');
   const { user, cambiarUser } = useContext(UserContext);
   const navigate = useNavigate();
@@ -29,7 +37,6 @@ function App() {
   function createRoom() {
     if (user != null) {
       const roomId = generateRandomString(5);
-      setRoom(roomId);
       socket.emit('message', {
         action: "createRoom",
         roomId: roomId,
@@ -52,15 +59,16 @@ function App() {
     localStorage.setItem("user", JSON.stringify(newUser));
   }
 
-  function recieveCreatePLayer(userData: any) {
+  function recieveCreatePLayer(userData: UserData) {
     cambiarUser(userData);
     localStorage.setItem("user", JSON.stringify(userData));
   }
 
   useEffect(() => {
-    const userStorage = JSON.parse(localStorage.getItem("user") || "null");
+    const userStorage = localStorage.getItem("user");
     if (userStorage) {
-      cambiarUser(userStorage);
+      const parsedUser = JSON.parse(userStorage) as UserData;
+      cambiarUser(parsedUser);
     }
 
     function onConnect() {
@@ -73,8 +81,8 @@ function App() {
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
-    socket.on('message', (value: any) => {
-      setFooEvents((previous: any[]) => [...previous, value]);
+    socket.on('message', (value: SocketMessage) => {
+      setFooEvents((previous) => [...previous, value]);
       console.log(value);
     });
     socket.on('recieveCreatePLayer', recieveCreatePLayer);

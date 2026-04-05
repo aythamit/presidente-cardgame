@@ -1,230 +1,202 @@
-# Deploy "El Presidente" Card Game to Ionos VPS
+# Deploy "El Presidente" en IONOS con Plesk
 
-## Prerequisites
+## Configuración Actual
 
-- Ionos VPS with Ubuntu 20.04+ 
-- SSH access to the server
-- Domain pointing to your VPS IP (optional)
-
----
-
-## 1. Server Setup
-
-### Connect to your VPS
-```bash
-ssh root@your-vps-ip
-```
-
-### Update system
-```bash
-apt update && apt upgrade -y
-```
-
-### Install Node.js (v20+)
-```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt install -y nodejs
-```
-
-### Install Git (if not installed)
-```bash
-apt install -y git
-```
+- **VPS**: IONOS
+- **Panel**: Plesk
+- **Subdominio**: presidente.aythamitorrado.es
 
 ---
 
-## 2. Deploy the Application
+## Pasos de Deploy
 
-### Clone the repository
+### 1. Sube el código al servidor
+
+**Opción A: Git (recomendado)**
+
 ```bash
+# En tu servidor (via SSH)
 cd /var/www
-git clone https://github.com/your-username/presidente-cardgame.git
+git clone https://github.com/tu-usuario/presidente-cardgame.git
 cd presidente-cardgame
 ```
 
-### Install dependencies
+**Opción B: FTP/SFTP**
 
-**Backend:**
+Sube la carpeta completa a `/var/www/presidente-cardgame/` usando FileZilla o el gestor de archivos de Plesk.
+
+---
+
+### 2. Instala las dependencias
+
 ```bash
+cd /var/www/presidente-cardgame
+
+# Backend
 cd backend
 npm install
-cd ..
-```
 
-**Frontend:**
-```bash
-cd frontend
+# Frontend
+cd ../frontend
 npm install
-cd ..
 ```
 
-### Build frontend
+---
+
+### 3. Construye el frontend
+
 ```bash
-cd frontend
+cd /var/www/presidente-cardgame/frontend
 npm run build
-cd ..
 ```
+
+Esto generará la carpeta `dist/` con los archivos estáticos.
 
 ---
 
-## 3. Configure Firewall
+### 4. Configura Node.js en Plesk
 
-```bash
-ufw allow 22    # SSH
-ufw allow 80    # HTTP
-ufw allow 443   # HTTPS
-ufw allow 8081  # Game server
-ufw enable
-```
+1. Inicia sesión en **Plesk** (https://tu-servidor:8443)
+2. Ve a **Sitios web y dominios**
+3. Click en **presidente.aythamitorrado.es**
+4. Click en **Configuración de Node.js**
+
+Configura:
+- **Directorio raíz del documento**: `httpsdocs` (o crea una carpeta `public`)
+- **Modo de aplicación**: `production`
+- **Variable de entorno NODE_ENV**: `production`
+
+5. Click en **Activar soporte Node.js**
 
 ---
 
-## 4. Set Up Process Manager (PM2)
+### 5. Configura el proxy para Socket.io
 
-### Install PM2
+Plesk permite configurar proxys. En **Configuración de Apache & Nginx**:
+
+**En "Directivas Nginx adicionales":**
+
+```nginx
+location /socket.io/ {
+    proxy_pass http://127.0.0.1:7080;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
+
+*Nota: El puerto 7080 es el proxy interno de Plesk para Node.js. Ajusta según tu configuración.*
+
+---
+
+### 6. Configura el firewall en IONOS
+
+En el panel de IONOS VPS:
+
+1. Ve a **Redes > Firewall**
+2. Abre los puertos:
+   - **22** (SSH)
+   - **80** (HTTP)
+   - **443** (HTTPS)
+   - **8081** (Backend del juego)
+
+---
+
+### 7. Instala SSL (Let's Encrypt)
+
+1. En Plesk, ve a **Sitios web y dominios > presidente.aythamitorrado.es**
+2. Click en **SSL/TLS Certificates**
+3. Click en **Lets Encrypt**
+4. Selecciona el dominio y email
+5. Click en **Obtener**
+6. **Importante**: Activa "Redireccionar HTTP a HTTPS"
+
+---
+
+### 8. Inicia el backend con PM2
+
 ```bash
+# Instala PM2 globalmente
 npm install -g pm2
-```
 
-### Start the backend server
-```bash
+# Inicia el backend
 cd /var/www/presidente-cardgame/backend
 pm2 start index.js --name presidente-backend
-```
 
-### Configure PM2 to start on boot
-```bash
+# Configura inicio automático
 pm2 startup
 pm2 save
 ```
 
 ---
 
-## 5. Configure Nginx (Reverse Proxy for Frontend)
+## Verificación
 
-### Install Nginx
-```bash
-apt install -y nginx
-```
-
-### Create Nginx config
-```bash
-nano /etc/nginx/sites-available/presidente
-```
-
-Paste this configuration:
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    # Frontend (built React app)
-    location / {
-        root /var/www/presidente-cardgame/frontend/dist;
-        index index.html;
-        try_files $uri $uri/ /index.html;
-    }
-
-    # Redirect socket.io to backend
-    location /socket.io/ {
-        proxy_pass http://127.0.0.1:8081;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-}
-```
-
-### Enable the site
-```bash
-ln -s /etc/nginx/sites-available/presidente /etc/nginx/sites-enabled/
-nginx -t
-systemctl reload nginx
-```
+| Check | Cómo verificar |
+|-------|----------------|
+| Frontend carga | https://presidente.aythamitorrado.es |
+| Backend corriendo | `pm2 status` |
+| Logs backend | `pm2 logs presidente-backend` |
+| Socket.io funciona | Abre la consola del navegador, debería conectar sin errores |
 
 ---
 
-## 6. SSL Certificate (Let's Encrypt)
+## Comandos rápidos
 
-### Install Certbot
 ```bash
-apt install -y certbot python3-certbot-nginx
-```
-
-### Get certificate
-```bash
-certbot --nginx -d your-domain.com
-```
-
-Follow the prompts. Certbot will automatically configure HTTPS.
-
----
-
-## 7. Verify Deployment
-
-### Check PM2 status
-```bash
+# Ver estado del backend
 pm2 status
-```
 
-### Check logs
-```bash
+# Reiniciar backend tras cambios
+pm2 restart presidente-backend
+
+# Ver logs en tiempo real
 pm2 logs presidente-backend
-```
 
-### Test your site
-Visit: `http://your-domain.com`
+# Ver logs solo últimos errores
+pm2 logs presidente-backend --err
+```
 
 ---
 
-## 8. Update Deployment
-
-When you push changes to GitHub:
+## Actualización (Deploy de cambios)
 
 ```bash
 cd /var/www/presidente-cardgame
+
+# Pull últimos cambios
 git pull
 
-# Rebuild frontend
+# Reinstalar dependencias (si hay cambios en package.json)
+cd backend && npm install && cd ..
+cd frontend && npm install && cd ..
+
+# Reconstruir frontend
 cd frontend
 npm run build
 cd ..
 
-# Restart backend
+# Reiniciar backend
 pm2 restart presidente-backend
 ```
 
 ---
 
-## Quick Commands Reference
+## Solución de problemas
 
-| Action | Command |
-|--------|---------|
-| View backend logs | `pm2 logs presidente-backend` |
-| Restart backend | `pm2 restart presidente-backend` |
-| Stop backend | `pm2 stop presidente-backend` |
-| Check backend status | `pm2 status` |
-| Reload Nginx | `nginx -s reload` |
-| View Nginx logs | `tail -f /var/log/nginx/access.log` |
+### Socket.io no conecta
+1. Verifica que el backend está corriendo: `pm2 status`
+2. Revisa los logs: `pm2 logs presidente-backend`
+3. Comprueba que el proxy Nginx está configurado correctamente (paso 5)
 
----
+### Error "Node.js no está disponible"
+1. En Plesk, verifica que **Soporte Node.js** está activado para el dominio
+2. Confirma que la ruta de la aplicación apunta a la carpeta correcta
 
-## Troubleshooting
-
-### Backend won't start
-Check port 8081 is not in use:
-```bash
-lsof -i :8081
-```
-
-### Socket.io not connecting
-- Ensure Nginx config has the socket.io proxy
-- Check firewall: `ufw status`
-- Check PM2 logs: `pm2 logs presidente-backend`
-
-### Frontend not loading
-- Check Nginx: `nginx -t`
-- Verify dist folder exists: `ls frontend/dist`
+### SSL no funciona
+1. En Plesk, ve a **SSL/TLS > Ajustes de Hosting**
+2. Asegúrate de tener un certificado válido instalado
+3. Verifica que "Redireccionar HTTP a HTTPS" está activo
